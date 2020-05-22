@@ -1,45 +1,33 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;
 
 public class EnemySpawner : MonoBehaviour
 {
-    [Header("Enemy Spawn Manager")] 
-    [SerializeField] private float respawnRate = 5.0f;
-    [SerializeField] private List<GameObject> spawnPositions = new List<GameObject>();
     [SerializeField] private GameObject zombiePrefab;
-    [SerializeField] private GameObject player;
 
-    [Header("Enemy Status")] 
-    [SerializeField] private float startHealth = 100f;
-    [SerializeField] private float startSpeed = 1f;
-    [SerializeField] private float startDamage = 100f;
-
-    [SerializeField] private float currentHealth;
-    [SerializeField] private float currentSpeed;
+    [SerializeField] private GameObject target;
     [SerializeField] private float currentDamage;
+    [SerializeField] private float currentMoveSpeed;
+    [SerializeField] private float currentHealth;
 
+    [SerializeField] private int zombiesSpawned;
+    
+    [SerializeField] private List<Transform> spawnPositionsList = new List<Transform>(); 
+ 
     private float spawnTimer;
-    private PrefabManager prefabManager;
     private List<GameObject> enemies = new List<GameObject>();
 
 
     void Start()
     {
-        currentHealth = startHealth;
-        currentSpeed = startSpeed;
-        currentDamage = startDamage;
         
-        enemies.Add(prefabManager.GetPrefab("Zombie"));
     }
     
     void LateUpdate()
     {
-        if(spawnTimer < respawnRate)
-        {
-            spawnTimer += Time.deltaTime;
-        }
-        else
+        if (zombiesSpawned < 10)
         {
             SpawnEnemy();
         }
@@ -47,8 +35,18 @@ public class EnemySpawner : MonoBehaviour
 
     private void SpawnEnemy()
     {
-        if (spawnTimer < respawnRate) return;
+        int spawnPos = Random.Range(0, spawnPositionsList.Count); // choose a random spawn pos
+        GameObject newZombie = Instantiate(zombiePrefab, spawnPositionsList[spawnPos].transform.position, Quaternion.identity);// spawns a zombie there
+        enemies.Add(newZombie);
+
+        spawnPositionsList.Remove(spawnPositionsList[spawnPos]);// removes the last spawn pos, so that every pos can spawn only one enemy
+        zombiesSpawned += 1;
         
+        //GameObject zombie = newZombie;
         
+        newZombie.GetComponent<ZombieAi>().Target = target;
+        newZombie.GetComponent<ZombieAi>().Damage = currentDamage;
+        newZombie.GetComponent<NavMeshAgent>().speed = currentMoveSpeed;
+        newZombie.GetComponent<HealthManager>().SetHealth(currentHealth);
     }
 }

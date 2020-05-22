@@ -9,15 +9,18 @@ public class ZombieAi : MonoBehaviour
 {
     private Animator animator;
     private HealthManager healthManager;
-    private AudioSource audioSource;
+    //private AudioSource audioSource;
     
-    [SerializeField] private GameObject target;
-    
-    [SerializeField] private float damage = 100.0f;
+    public GameObject Target;// test
+    public float Damage = 100.0f;// test
+
+    //for random walking
+    [SerializeField] private float width = 5;// for a square around the enemy
+
     [SerializeField] private bool isAttacking = false;
-    [SerializeField] private bool runs;
     [SerializeField] private bool gotHit;
     [SerializeField] private bool walks;
+    [SerializeField] private float maxSeeDistance = 20f;
 
     [SerializeField] private bool isInLateUpdate;
     [SerializeField] private bool haveToUpdate = true;
@@ -27,8 +30,8 @@ public class ZombieAi : MonoBehaviour
     [SerializeField] private AudioClip attackSound;
     [SerializeField] private AudioClip diengSound;
     
-    [SerializeField] private float normalSpeed = 3;
-    [SerializeField] private float runSpeed = 5;
+    [SerializeField] private float normalSpeed = 4f;
+    [SerializeField] private float runSpeed = 8f;
     //[SerializeField] private float currentSpeed;
     [SerializeField] private GameObject noChaseObj;
     [SerializeField] private Vector3 notChaseTarget;
@@ -42,7 +45,7 @@ public class ZombieAi : MonoBehaviour
         healthManager = GetComponent<HealthManager>();
         agent = GetComponent<NavMeshAgent>();
         //agent = GetComponent<EnemyUnit>();
-        audioSource = GetComponent<AudioSource>();
+        //audioSource = GetComponent<AudioSource>();
 
         agent.speed = normalSpeed;
     }
@@ -51,29 +54,35 @@ public class ZombieAi : MonoBehaviour
     
     private void Update()
     {
-        agent.speed = normalSpeed;
-        animator.SetBool("Run", false);
-        
         float distanceToPlayer = GetActualDistanceFromTarget();
-        Debug.Log(distanceToPlayer);// Debugs the current distance from the zombies
-        
 
-        if (distanceToPlayer >= 20f)// if the distanceToPlayer is too hight, the zombie will walk around slowly
+        if (!isAttacking)
         {
-            shouldChase = false;
-            
-            
-        }
-        
-        if (shouldChase)// if zombie should chase, it follows the player and tries to attack him
-        {
-            agent.destination = target.transform.position; 
-            runs = true;
-        }
-        else if (!shouldChase)
-        {
-            agent.destination = NotChaseTarget();// random target based on the current pos from the zombie
-            runs = false;
+            if (distanceToPlayer >= maxSeeDistance) // if the distanceToPlayer is too hight, the zombie will walk around slowly
+            {
+                shouldChase = false;
+                animator.SetBool("Run", false);
+                agent.speed = normalSpeed;
+            }
+            else
+            {
+                shouldChase = true;
+                animator.SetBool("Run", true);
+                agent.speed = runSpeed;
+            }
+
+            if (distanceToPlayer <= 2.0f)
+            {
+                Attack();
+            }
+            else if (shouldChase) // if zombie should chase, it follows the player and tries to attack him
+            {
+                agent.destination = Target.transform.position;
+            }
+            else if (!shouldChase && distanceToPlayer > 2.0f)
+            {
+                agent.destination = NotChaseTarget(); // random target based on the current pos from the zombie
+            }
         }
     }
 
@@ -83,22 +92,25 @@ public class ZombieAi : MonoBehaviour
         float distanceFromTarget = GetActualDistanceFromTarget();
 		
         // Calculate direction is toward player
-        Vector3 direction = target.transform.position - this.transform.position;
+        Vector3 direction = Target.transform.position - this.transform.position;
         float angle = Vector3.Angle(direction, this.transform.forward);
 
-        if(!isAttacking && distanceFromTarget <= 2.0f && angle <= 60f) {
+        if(!isAttacking && distanceFromTarget <= 5.0f && angle <= 60f) 
+        {
             isAttacking = true;
             shouldChase = false;
 
             agent.speed = 0;
 
-            audioSource.PlayOneShot(attackSound);
+            animator.SetBool("Run", false);
+            //audioSource.PlayOneShot(attackSound);
             animator.SetTrigger("Attack");
-
-            HealthManager targetHealthManager = target.GetComponent<HealthManager>();
-
-            if(targetHealthManager) {
-                targetHealthManager.ApplyDamage(damage);
+            new WaitForSeconds(0.5f);
+            
+            HealthManager targetHealthManager = Target.GetComponent<HealthManager>();
+            if(targetHealthManager)
+            {
+                targetHealthManager.ApplyDamage(Damage);
             }
 
             StartCoroutine(ResetAttacking());
@@ -106,22 +118,19 @@ public class ZombieAi : MonoBehaviour
     }
 
     private Vector3 NotChaseTarget()// randomly get the next target if is not attacking the player
-    {
-        Vector3 old = this.transform.position;
-        noChaseObj.transform.position = old;
-        
-        notChaseTarget.x = Random.Range(old.x - 4, old.x + 4);
-        notChaseTarget.y = old.y;
-        notChaseTarget.z = Random.Range(old.z - 4, old.z + 4);
-            
-        notChaseTarget = new Vector3(notChaseTarget.x, notChaseTarget.y, notChaseTarget.z);
-        return notChaseTarget;
+    { 
+        float rx = Random.Range(-1, 1);
+        float rz = Random.Range(-1, 1);
+    
+        Vector3 nDestination = new Vector3(transform.position.x + (rx * width), 0, transform.position.z + (rz * width));
+
+        return nDestination;
     }
 
     IEnumerator LateDistanceUpdate(float duration)
     {
         isInLateUpdate = true;
-        agent.destination = target.transform.position;
+        agent.destination = Target.transform.position;
         yield return new WaitForSeconds(duration);
 		
         isInLateUpdate = false;
@@ -131,7 +140,7 @@ public class ZombieAi : MonoBehaviour
     
     float GetActualDistanceFromTarget()
     {
-        return GetDistanceFrom(target.transform.position, this.transform.position);
+        return GetDistanceFrom(Target.transform.position, this.transform.position);
     }
 
     float GetDistanceFrom(Vector3 src, Vector3 dist)
@@ -141,7 +150,7 @@ public class ZombieAi : MonoBehaviour
     
     IEnumerator ResetAttacking()
     {
-        yield return new WaitForSeconds(1.4f);
+        yield return new WaitForSeconds(2.4f);
 
         isAttacking = false;
         shouldChase = true;
